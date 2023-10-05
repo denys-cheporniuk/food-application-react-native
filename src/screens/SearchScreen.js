@@ -1,39 +1,49 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native'
+import React, {useMemo, useState} from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native'
 import SearchBar from "../components/SearchBar";
-import yelp from "../api/yelp";
+import useResults from "../hooks/useResults";
+import ResultsList from "../components/ResultsList";
 
 const SearchScreen = () => {
   const [term, setTerm] = useState('');
-  const [results, setResults] = useState([]);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [searchApi, results, errorMessage] = useResults();
 
-  const searchApi = async () => {
-    try {
-      const response = await yelp.get('/search', {
-        params: {
-          limit: 50,
-          term,
-          location: 'san jose'
-        }
-      });
-      setResults(response.data.businesses);
-      setErrorMessage('');
-    } catch {
-      setErrorMessage('Something went wrong!');
-    }
-  }
+  const resultsByPrice = useMemo(() => {
+    return results.reduce((acc, result) => {
+      if (acc[result.price]) {
+        acc[result.price].push(result);
+      } else {
+        acc[result.price] = [result];
+      }
+
+      return acc;
+    }, {})
+  }, [results]);
 
   return (
     <View>
       <SearchBar
         term={term}
         onTermChange={setTerm}
-        onTermSubmit={searchApi}
+        onTermSubmit={() => searchApi(term)}
       />
 
       {errorMessage && <Text>{errorMessage}</Text>}
-      <Text>{results.length} found</Text>
+
+      <ScrollView>
+        <ResultsList
+          title="Cost Effective"
+          results={resultsByPrice['$'] || []}
+        />
+        <ResultsList
+          title="Bit Pricier"
+          results={resultsByPrice['$$'] || []}
+        />
+        <ResultsList
+          title="Big spender"
+          results={resultsByPrice['$$$'] || []}
+        />
+      </ScrollView>
     </View>
   );
 };
